@@ -9,6 +9,7 @@
 #include "MainWindow.h"
 #include "Global.h"
 
+#include <algorithm>
 #include <exception>
 #include <sstream>
 #include "CoreAudio.h"
@@ -31,6 +32,12 @@ void UndoDucking(AudioDeviceID output_device_id) {
 	    qDebug("CoreAudioInput: Undo Ducking caused by VoIP AU.");
 	    AudioDeviceDuck(output_device_id, 1.0, nullptr, 0.5);
     }
+}
+
+// The VoiceProcessingIO AU only delivers mono, so Apple's echo cancellation is not
+// used while transmitting in stereo (the stored echo option is kept as is).
+bool useAppleEcho() {
+	return Global::get().s.echoOption == EchoCancelOptionID::APPLE_AEC && !Global::get().s.bStereoInput;
 }
 }
 
@@ -413,7 +420,7 @@ void CoreAudioInit::destroy() {
 }
 
 const QList< audioDevice > CoreAudioSystem::getDeviceChoices(bool input) {
-	const bool doEcho = (Global::get().s.echoOption == EchoCancelOptionID::APPLE_AEC);
+	const bool doEcho = useAppleEcho();
 	const QHash< QString, QString > devices = CoreAudioSystem::getDevices(input, doEcho);
 
 	QList< audioDevice > choices = {
@@ -721,7 +728,7 @@ void CoreAudioInput::run() {
 	AudioStreamBasicDescription fmt;
 	inputDevId = 0;
 	echoOutputDevId = 0;
-	bool doEcho = (Global::get().s.echoOption == EchoCancelOptionID::APPLE_AEC);
+	bool doEcho = useAppleEcho();
 
 	auHAL = nullptr;
 	auVoip = nullptr;
@@ -758,12 +765,16 @@ void CoreAudioInput::run() {
 		eMicFormat = SampleShort;
 	}
 
-	if (fmt.mChannelsPerFrame > 1) {
-		qWarning("CoreAudioInput: Input device with more than one channel detected. Defaulting to 1.");
+	// A mono device stays at one channel when transmitting in stereo; the mixer then
+	// sends it on both channels.
+	const unsigned int wantedChannels = Global::get().s.bStereoInput ? 2 : 1;
+	iMicChannels = std::max(1u, std::min(wantedChannels, static_cast<unsigned int>(fmt.mChannelsPerFrame)));
+	if (fmt.mChannelsPerFrame > iMicChannels) {
+		qWarning("CoreAudioInput: Input device with %u channels detected. Using the first %u.",
+		         static_cast<unsigned int>(fmt.mChannelsPerFrame), iMicChannels);
 	}
 
 	iMicFreq     = static_cast<unsigned int>(fmt.mSampleRate);
-	iMicChannels = 1;
 	initializeMixer();
 
 	if (eMicFormat == SampleFloat) {
