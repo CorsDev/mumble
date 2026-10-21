@@ -184,17 +184,34 @@ private:
 
 	unsigned int iMicFilled, iEchoFilled;
 	inMixerFunc imfMic, imfEcho;
-	inMixerFunc chooseMixer(const unsigned int nchan, SampleFormat sf, quint64 mask);
+	inMixerFunc chooseMixer(const unsigned int nchan, SampleFormat sf, quint64 mask, unsigned int outChannels);
 	void resetAudioProcessor();
 
 	OpusEncoder *opusState;
 #ifdef USE_RNNOISE
+	/// Denoiser state for the mono signal, respectively the left channel when
+	/// transmitting in stereo
 	DenoiseState *denoiseState;
+	/// Denoiser state for the right channel, only allocated when transmitting in stereo
+	DenoiseState *denoiseStateR;
 #endif
 	bool selectCodec();
 	void selectNoiseCancel();
 
-	using EncodingOutputBuffer = std::array< unsigned char, 960 >;
+public:
+	/// Maximum size in bytes of the encoded payload of a single audio packet.
+	/// Sized such that a full packet - including the protocol overhead - always
+	/// stays below Mumble::Protocol::MAX_UDP_PACKET_SIZE.
+	static constexpr unsigned int MAX_PACKET_PAYLOAD = 960;
+
+	/// \return the maximum encoder bitrate (bit/s) such that a packet containing
+	/// framesPerPacket 10 ms frames still fits into MAX_PACKET_PAYLOAD bytes
+	static constexpr int maxPayloadBitrate(int framesPerPacket) {
+		return static_cast< int >(MAX_PACKET_PAYLOAD) * 8 * 100 / framesPerPacket;
+	}
+
+private:
+	using EncodingOutputBuffer = std::array< unsigned char, MAX_PACKET_PAYLOAD >;
 
 	int encodeOpusFrame(short *source, int size, EncodingOutputBuffer &buffer);
 
@@ -207,6 +224,11 @@ protected:
 	SampleFormat eMicFormat, eEchoFormat;
 
 	unsigned int iMicChannels, iEchoChannels;
+	/// Number of channels the microphone signal is mixed down to and encoded
+	/// with (2 if stereo input is enabled, 1 otherwise). The mic frame buffers
+	/// (pfMicInput, the chunks handed to encodeAudioFrame, opusBuffer) hold
+	/// iFrameSize * m_transmitChannels interleaved samples per 10 ms frame.
+	unsigned int m_transmitChannels;
 	unsigned int iMicFreq, iEchoFreq;
 	unsigned int iMicLength, iEchoLength;
 	unsigned int iMicSampleSize, iEchoSampleSize;
