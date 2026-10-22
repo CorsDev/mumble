@@ -36,6 +36,11 @@
 			"cmake_target": "CLI11::CLI11"
 		},
 		{
+			"name": "cpp-httplib",
+			"license": "MIT",
+			"source_code": "https://github.com/yhirose/cpp-httplib"
+		},
+		{
 			"name": "Expat",
 			"license": "MIT",
 			"source_code": "https://github.com/libexpat/libexpat.git"
