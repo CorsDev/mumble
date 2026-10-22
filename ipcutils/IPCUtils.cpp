@@ -5,8 +5,12 @@
 
 #include "IPCUtils.h"
 
+#include <system_error>
+
 #ifndef _WIN32
+#	include <cstddef>
 #	include <cstdlib>
+#	include <string>
 
 #	include <unistd.h>
 #endif
@@ -23,10 +27,24 @@ std::filesystem::path getRuntimeDirectory() {
 	if (xdgRuntimeDir != nullptr && xdgRuntimeDir[0] != '\0') {
 		runtimeDir = std::filesystem::path(xdgRuntimeDir) / "info.mumble.Mumble";
 	} else {
-		runtimeDir = std::filesystem::path("/run/user") / std::to_string(getuid()) / "info.mumble.Mumble";
+#	ifdef __APPLE__
+		// macOS has no /run/user. Its per-user temporary directory is private to the user as well.
+		const std::size_t size = confstr(_CS_DARWIN_USER_TEMP_DIR, nullptr, 0);
+		if (size > 0) {
+			std::string userTempDir(size, '\0');
+			confstr(_CS_DARWIN_USER_TEMP_DIR, userTempDir.data(), size);
+			userTempDir.resize(size - 1);
+			runtimeDir = std::filesystem::path(userTempDir) / "info.mumble.Mumble";
+		}
+#	endif
+		if (runtimeDir.empty()) {
+			runtimeDir = std::filesystem::path("/run/user") / std::to_string(getuid()) / "info.mumble.Mumble";
+		}
 	}
 
-	std::filesystem::create_directories(runtimeDir);
+	// A failure is not an error here: the caller notices when it can't use the endpoint.
+	std::error_code ec;
+	std::filesystem::create_directories(runtimeDir, ec);
 
 	return runtimeDir;
 #endif
