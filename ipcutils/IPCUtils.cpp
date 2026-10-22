@@ -5,6 +5,8 @@
 
 #include "IPCUtils.h"
 
+#include <system_error>
+
 #ifndef _WIN32
 #	include <cstdlib>
 
@@ -26,7 +28,9 @@ std::filesystem::path getRuntimeDirectory() {
 		runtimeDir = std::filesystem::path("/run/user") / std::to_string(getuid()) / "info.mumble.Mumble";
 	}
 
-	std::filesystem::create_directories(runtimeDir);
+	// A failure is not an error here: the caller notices when it can't use the endpoint.
+	std::error_code ec;
+	std::filesystem::create_directories(runtimeDir, ec);
 
 	return runtimeDir;
 #endif
