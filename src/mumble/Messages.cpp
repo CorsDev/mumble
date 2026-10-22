@@ -812,6 +812,9 @@ void MainWindow::msgUserState(const MumbleProto::UserState &msg) {
 		Global::get().o->verifyTexture(pDst);
 #endif
 	}
+	if (msg.has_texture_hash() || msg.has_texture()) {
+		emit pDst->textureChanged();
+	}
 	if (msg.has_comment_hash())
 		pmModel->setCommentHash(pDst, blob(msg.comment_hash()));
 	if (msg.has_comment())

@@ -35,7 +35,7 @@
  * Plugin version information
  */
 #	define MUMBLE_PLUGIN_INTERFACE_MAJOR_MACRO 1
-#	define MUMBLE_PLUGIN_INTERFACE_MINOR_MACRO 2
+#	define MUMBLE_PLUGIN_INTERFACE_MINOR_MACRO 3
 #	define MUMBLE_PLUGIN_INTERFACE_PATCH_MACRO 0
 
 // Allow the selected API version be overwritten by external definitions
@@ -43,14 +43,14 @@
 #		define MUMBLE_PLUGIN_API_MAJOR_MACRO 1
 #	endif
 #	ifndef MUMBLE_PLUGIN_API_MINOR_MACRO
-#		define MUMBLE_PLUGIN_API_MINOR_MACRO 2
+#		define MUMBLE_PLUGIN_API_MINOR_MACRO 3
 #	endif
 #	ifndef MUMBLE_PLUGIN_API_PATCH_MACRO
 #		define MUMBLE_PLUGIN_API_PATCH_MACRO 0
 #	endif
 
 #	define MUMBLE_PLUGIN_FUNCTIONS_MAJOR_MACRO 1
-#	define MUMBLE_PLUGIN_FUNCTIONS_MINOR_MACRO 1
+#	define MUMBLE_PLUGIN_FUNCTIONS_MINOR_MACRO 2
 #	define MUMBLE_PLUGIN_FUNCTIONS_PATCH_MACRO 0
 
 /*
@@ -1141,6 +1141,18 @@ MUMBLE_PLUGIN_EXPORT void MUMBLE_PLUGIN_CALLING_CONVENTION mumble_onChannelRenam
  */
 MUMBLE_PLUGIN_EXPORT void MUMBLE_PLUGIN_CALLING_CONVENTION mumble_onKeyEvent(uint32_t keyCode, bool wasPress);
 
+/**
+ * Called when the texture (avatar) of a user has changed. This also happens when a user's texture has finished
+ * synchronizing to this client. The texture itself can be obtained via the getUserTexture API function.
+ *
+ * @param connection An object used to identify the current connection
+ * @param userID The ID of the user whose texture has changed
+ *
+ * @since Plugin interface v1.2.0
+ */
+MUMBLE_PLUGIN_EXPORT void MUMBLE_PLUGIN_CALLING_CONVENTION mumble_onUserTextureChanged(mumble_connection_t connection,
+																					   mumble_userid_t userID);
+
 
 
 // >>>>>>>>>>>>>>>>>>>> PLUGIN UPDATE functions <<<<<<<<<<<<<<<<<<<<
@@ -1808,6 +1820,35 @@ struct MUMBLE_API_STRUCT_NAME {
 	 */
 	mumble_error_t(MUMBLE_PLUGIN_CALLING_CONVENTION *playSample)(mumble_plugin_id_t callerID,
 																 const char *samplePath PARAM_v1_2(float volume));
+
+#	if SELECTED_API_VERSION >= MUMBLE_PLUGIN_VERSION_CHECK(1, 3, 0)
+	/**
+	 * Gets the texture (avatar) of the given user as an encoded image. If the user's texture hasn't been synchronized
+	 * to this client yet, this function requests it from the server and returns EC_UNSYNCHRONIZED_BLOB. Once the
+	 * texture has arrived, mumble_onUserTextureChanged will be called for that user.
+	 *
+	 * @param callerID The ID of the plugin calling this function
+	 * @param connection The ID of the server-connection
+	 * @param userID The ID of the user whose texture should be obtained
+	 * @param[out] texture A pointer to where the pointer to the allocated image data should be written to. If the user
+	 * has no texture, a nullptr is written instead. The allocated memory has to be freed by a call to freeMemory by
+	 * the plugin eventually. The memory will only be allocated if this function returns STATUS_OK.
+	 * @param[out] textureSize A pointer to where the size of the image data (in bytes) should be written to. If the
+	 * user has no texture, this is set to zero.
+	 * @param[out] format A pointer to where the pointer to the allocated string (C-encoded) naming the image format
+	 * (e.g. "png" or "jpeg") should be written to. If the user has no texture, a nullptr is written instead. The
+	 * allocated memory has to be freed by a call to freeMemory by the plugin eventually. The memory will only be
+	 * allocated if this function returns STATUS_OK.
+	 * @returns The error code. If everything went well, STATUS_OK will be returned. Only then the passed pointers
+	 * may be accessed
+	 *
+	 * @since Mumble API v1.3.0
+	 */
+	mumble_error_t(MUMBLE_PLUGIN_CALLING_CONVENTION *getUserTexture)(mumble_plugin_id_t callerID,
+																	 mumble_connection_t connection,
+																	 mumble_userid_t userID, const uint8_t **texture,
+																	 size_t *textureSize, const char **format);
+#	endif
 };
 
 #	ifdef MUMBLE_PLUGIN_CREATE_MUMBLE_API_TYPEDEF

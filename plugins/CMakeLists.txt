@@ -16,6 +16,7 @@ set(AVAILABLE_PLUGINS "")
 # Plugins available on all platforms
 list(APPEND AVAILABLE_PLUGINS
 	"link"
+	"streamkit"
 )
 
 if(${CMAKE_BUILD_TYPE} MATCHES Debug)

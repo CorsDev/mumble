@@ -66,6 +66,7 @@ struct MumblePluginFunctions {
 	decltype(&mumble_onChannelRemoved) onChannelRemoved;
 	decltype(&mumble_onChannelRenamed) onChannelRenamed;
 	decltype(&mumble_onKeyEvent) onKeyEvent;
+	decltype(&mumble_onUserTextureChanged) onUserTextureChanged;
 
 	// Plugin updates
 	decltype(&mumble_hasUpdate) hasUpdate;
@@ -363,6 +364,11 @@ protected:
 	/// 	always the upper-case letter code will be used for letters.
 	/// @param wasPress Whether the key has been pressed (instead of released)
 	virtual void onKeyEvent(mumble_keycode_t keyCode, bool wasPress) const;
+	/// Called when the texture (avatar) of a user has changed or has finished synchronizing to this client.
+	///
+	/// @param connection An object used to identify the current connection
+	/// @param userID The ID of the user whose texture has changed
+	virtual void onUserTextureChanged(mumble_connection_t connection, mumble_userid_t userID) const;
 
 
 public:

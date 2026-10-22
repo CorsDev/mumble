@@ -16,7 +16,9 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <QByteArray>
 #include <QObject>
+#include <QSet>
 
 namespace API {
 
@@ -160,12 +162,17 @@ public slots:
 							std::shared_ptr< api_promise_t > promise);
 	void playSample_v_1_2_x(mumble_plugin_id_t callerID, const char *samplePath, float volume,
 							std::shared_ptr< api_promise_t > promise);
+	void getUserTexture_v_1_3_x(mumble_plugin_id_t callerID, mumble_connection_t connection, mumble_userid_t userID,
+								const uint8_t **texture, std::size_t *textureSize, const char **format,
+								std::shared_ptr< api_promise_t > promise);
 
 
 private:
 	MumbleAPI();
 
 	MumbleAPICurator m_curator;
+	/// Hashes of textures that have already been requested from the server
+	QSet< QByteArray > m_requestedTextureHashes;
 };
 
 /// @returns The Mumble API struct (v1.0.x)
@@ -173,6 +180,9 @@ MumbleAPI_v_1_0_x getMumbleAPI_v_1_0_x();
 
 /// @returns The Mumble API struct (v1.2.x)
 MumbleAPI_v_1_2_x getMumbleAPI_v_1_2_x();
+
+/// @returns The Mumble API struct (v1.3.x)
+MumbleAPI_v_1_3_x getMumbleAPI_v_1_3_x();
 
 /// Converts from the Qt key-encoding to the API's key encoding.
 ///

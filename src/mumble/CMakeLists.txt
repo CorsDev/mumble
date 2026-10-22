@@ -274,6 +274,8 @@ set(MUMBLE_SOURCES
 	"UserLocalVolumeSlider.h"
 	"UserModel.cpp"
 	"UserModel.h"
+	"UserTexture.cpp"
+	"UserTexture.h"
 	"UserView.cpp"
 	"UserView.h"
 	"VersionCheck.cpp"
