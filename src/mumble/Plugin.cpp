@@ -186,6 +186,12 @@ void Plugin::resolveFunctionPointers() {
 				reinterpret_cast< decltype(MumblePluginFunctions::getPositionalDataContextPrefix) >(
 					m_lib.resolve("mumble_getPositionalDataContextPrefix"));
 		}
+		if (pluginFunctionsVersion >= mumble_version_t({ 1, 2, 0 })) {
+			// Functions introduced with plugin functions scheme v1.2.0
+			m_pluginFnc.onUserTextureChanged =
+				reinterpret_cast< decltype(MumblePluginFunctions::onUserTextureChanged) >(
+					m_lib.resolve("mumble_onUserTextureChanged"));
+		}
 
 #ifdef MUMBLE_PLUGIN_DEBUG
 #	define CHECK_AND_LOG(name)        \
@@ -219,6 +225,7 @@ void Plugin::resolveFunctionPointers() {
 		CHECK_AND_LOG(onChannelRemoved);
 		CHECK_AND_LOG(onChannelRenamed);
 		CHECK_AND_LOG(onKeyEvent);
+		CHECK_AND_LOG(onUserTextureChanged);
 		CHECK_AND_LOG(hasUpdate);
 		CHECK_AND_LOG(getUpdateDownloadURL);
 		qDebug("<<<<");
@@ -328,6 +335,9 @@ mumble_error_t Plugin::init() {
 		registerAPIFunctions(&api);
 	} else if (apiVersion >= mumble_version_t({ 1, 2, 0 }) && apiVersion < mumble_version_t({ 1, 3, 0 })) {
 		MumbleAPI_v_1_2_x api = API::getMumbleAPI_v_1_2_x();
+		registerAPIFunctions(&api);
+	} else if (apiVersion >= mumble_version_t({ 1, 3, 0 }) && apiVersion < mumble_version_t({ 1, 4, 0 })) {
+		MumbleAPI_v_1_3_x api = API::getMumbleAPI_v_1_3_x();
 		registerAPIFunctions(&api);
 	} else {
 		// The API version could not be obtained -> this is an invalid plugin that shouldn't have been loaded in the
@@ -695,6 +705,14 @@ void Plugin::onKeyEvent(mumble_keycode_t keyCode, bool wasPress) const {
 
 	if (m_pluginFnc.onKeyEvent) {
 		m_pluginFnc.onKeyEvent(static_cast< std::uint32_t >(keyCode), wasPress);
+	}
+}
+
+void Plugin::onUserTextureChanged(mumble_connection_t connection, mumble_userid_t userID) const {
+	assertPluginLoaded(this);
+
+	if (m_pluginFnc.onUserTextureChanged) {
+		m_pluginFnc.onUserTextureChanged(connection, userID);
 	}
 }
 

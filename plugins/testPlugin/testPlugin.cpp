@@ -481,6 +481,28 @@ void mumble_onKeyEvent(uint32_t keyCode, bool wasPress) {
 	pLog() << "Encountered key " << (wasPress ? "press" : "release") << " of key with code " << keyCode << std::endl;
 }
 
+void mumble_onUserTextureChanged(mumble_connection_t connection, mumble_userid_t userID) {
+	pLog() << "Texture of user with ID " << userID << " has changed (ServerConnection: " << connection << ")"
+		   << std::endl;
+
+	const uint8_t *texture = nullptr;
+	size_t textureSize     = 0;
+	const char *format     = nullptr;
+	mumble_error_t error   = mumAPI.getUserTexture(ownID, connection, userID, &texture, &textureSize, &format);
+	if (error != MUMBLE_STATUS_OK) {
+		pLog() << "Failed at getting texture: " << mumble_errorMessage(error) << std::endl;
+		return;
+	}
+
+	if (texture) {
+		pLog() << "Texture has " << textureSize << " bytes in format " << format << std::endl;
+		mumAPI.freeMemory(ownID, texture);
+		mumAPI.freeMemory(ownID, format);
+	} else {
+		pLog() << "User has no texture" << std::endl;
+	}
+}
+
 bool mumble_hasUpdate() {
 	// This plugin never has an update
 	return false;

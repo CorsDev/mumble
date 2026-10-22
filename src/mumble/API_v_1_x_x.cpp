@@ -16,6 +16,7 @@
 #include "ServerHandler.h"
 #include "Settings.h"
 #include "UserModel.h"
+#include "UserTexture.h"
 #include "Version.h"
 #include "Global.h"
 
@@ -1647,6 +1648,82 @@ void MumbleAPI::playSample_v_1_2_x(mumble_plugin_id_t callerID, const char *samp
 	}
 }
 
+void MumbleAPI::getUserTexture_v_1_3_x(mumble_plugin_id_t callerID, mumble_connection_t connection,
+									   mumble_userid_t userID, const uint8_t **texture, std::size_t *textureSize,
+									   const char **format, std::shared_ptr< api_promise_t > promise) {
+	if (QThread::currentThread() != thread()) {
+		// Invoke in main thread
+		QMetaObject::invokeMethod(this, "getUserTexture_v_1_3_x", Qt::QueuedConnection,
+								  Q_ARG(mumble_plugin_id_t, callerID), Q_ARG(mumble_connection_t, connection),
+								  Q_ARG(mumble_userid_t, userID), Q_ARG(const uint8_t **, texture),
+								  Q_ARG(std::size_t *, textureSize), Q_ARG(const char **, format),
+								  Q_ARG(std::shared_ptr< api_promise_t >, promise));
+
+		return;
+	}
+
+	api_promise_t::lock_guard_t guard = promise->lock();
+	if (promise->isCancelled()) {
+		return;
+	}
+
+	VERIFY_PLUGIN_ID(callerID);
+
+	VERIFY_CONNECTION(connection);
+	ENSURE_CONNECTION_SYNCHRONIZED(connection);
+
+	ClientUser *user = ClientUser::get(userID);
+
+	if (!user) {
+		EXIT_WITH(MUMBLE_EC_USER_NOT_FOUND);
+	}
+
+	QByteArray data = user->qbaTexture;
+	if (data.isEmpty() && !user->qbaTextureHash.isEmpty()) {
+		data = Global::get().db->blob(user->qbaTextureHash);
+
+		if (data.isEmpty()) {
+			// The user's texture hasn't been synchronized to this client yet. Only request it once, so that plugins
+			// polling for it don't flood the server with requests.
+			if (!m_requestedTextureHashes.contains(user->qbaTextureHash)) {
+				m_requestedTextureHashes.insert(user->qbaTextureHash);
+
+				MumbleProto::RequestBlob mprb;
+				mprb.add_session_texture(user->uiSession);
+				Global::get().sh->sendMessage(mprb);
+			}
+
+			EXIT_WITH(MUMBLE_EC_UNSYNCHRONIZED_BLOB);
+		}
+	}
+
+	QByteArray imageFormat;
+	if (data.isEmpty() || !normalizeUserTexture(data, imageFormat)) {
+		*texture     = nullptr;
+		*textureSize = 0;
+		*format      = nullptr;
+
+		EXIT_WITH(MUMBLE_STATUS_OK);
+	}
+
+	const std::size_t size = static_cast< std::size_t >(data.size());
+	uint8_t *textureArray  = reinterpret_cast< uint8_t * >(malloc(size));
+	std::memcpy(textureArray, data.constData(), size);
+
+	// +1 for NULL terminator
+	char *formatArray = reinterpret_cast< char * >(malloc(static_cast< std::size_t >(imageFormat.size() + 1)));
+	std::strcpy(formatArray, imageFormat.constData());
+
+	m_curator.m_entries.insert({ textureArray, { defaultDeleter, callerID, "getUserTexture" } });
+	m_curator.m_entries.insert({ formatArray, { defaultDeleter, callerID, "getUserTexture" } });
+
+	*texture     = textureArray;
+	*textureSize = size;
+	*format      = formatArray;
+
+	EXIT_WITH(MUMBLE_STATUS_OK);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////// C FUNCTION WRAPPERS FOR USE IN API STRUCT ///////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1926,6 +2003,14 @@ C_WRAPPER(playSample_v_1_2_x)
 #undef TYPED_ARGS
 #undef ARG_NAMES
 
+#define TYPED_ARGS                                                                                                \
+	mumble_plugin_id_t callerID, mumble_connection_t connection, mumble_userid_t userID, const uint8_t **texture, \
+		std::size_t *textureSize, const char **format
+#define ARG_NAMES callerID, connection, userID, texture, textureSize, format
+C_WRAPPER(getUserTexture_v_1_3_x)
+#undef TYPED_ARGS
+#undef ARG_NAMES
+
 
 #undef C_WRAPPER
 
@@ -2014,6 +2099,48 @@ MumbleAPI_v_1_2_x getMumbleAPI_v_1_2_x() {
 			 sendData_v_1_0_x,
 			 log_v_1_0_x,
 			 playSample_v_1_2_x };
+}
+
+MumbleAPI_v_1_3_x getMumbleAPI_v_1_3_x() {
+	return { freeMemory_v_1_0_x,
+			 getActiveServerConnection_v_1_0_x,
+			 isConnectionSynchronized_v_1_0_x,
+			 getLocalUserID_v_1_0_x,
+			 getUserName_v_1_0_x,
+			 getChannelName_v_1_0_x,
+			 getAllUsers_v_1_0_x,
+			 getAllChannels_v_1_0_x,
+			 getChannelOfUser_v_1_0_x,
+			 getUsersInChannel_v_1_0_x,
+			 getLocalUserTransmissionMode_v_1_0_x,
+			 isUserLocallyMuted_v_1_0_x,
+			 isLocalUserMuted_v_1_0_x,
+			 isLocalUserDeafened_v_1_0_x,
+			 getUserHash_v_1_0_x,
+			 getServerHash_v_1_0_x,
+			 getUserComment_v_1_0_x,
+			 getChannelDescription_v_1_0_x,
+			 requestLocalUserTransmissionMode_v_1_0_x,
+			 requestUserMove_v_1_0_x,
+			 requestMicrophoneActivationOverwrite_v_1_0_x,
+			 requestLocalMute_v_1_0_x,
+			 requestLocalUserMute_v_1_0_x,
+			 requestLocalUserDeaf_v_1_0_x,
+			 requestSetLocalUserComment_v_1_0_x,
+			 findUserByName_v_1_0_x,
+			 findChannelByName_v_1_0_x,
+			 getMumbleSetting_bool_v_1_0_x,
+			 getMumbleSetting_int_v_1_0_x,
+			 getMumbleSetting_double_v_1_0_x,
+			 getMumbleSetting_string_v_1_0_x,
+			 setMumbleSetting_bool_v_1_0_x,
+			 setMumbleSetting_int_v_1_0_x,
+			 setMumbleSetting_double_v_1_0_x,
+			 setMumbleSetting_string_v_1_0_x,
+			 sendData_v_1_0_x,
+			 log_v_1_0_x,
+			 playSample_v_1_2_x,
+			 getUserTexture_v_1_3_x };
 }
 
 #define MAP(qtName, apiName) \

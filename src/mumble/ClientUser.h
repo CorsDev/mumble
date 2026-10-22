@@ -94,6 +94,7 @@ signals:
 	void recordingStateChanged();
 	void localVolumeAdjustmentsChanged(float newAdjustment, float oldAdjustment);
 	void localNicknameChanged();
+	void textureChanged();
 };
 
 #endif
