@@ -52,6 +52,7 @@ std::condition_variable stateChanged;
 std::uint64_t stateVersion = 0;
 bool shuttingDown          = false;
 bool synchronized          = false;
+std::optional< mumble_userid_t > localUserID;
 std::string channelName;
 std::vector< mumble_userid_t > channelUsers;
 std::unordered_map< mumble_userid_t, std::string > userNames;
@@ -87,6 +88,7 @@ std::string stateToJson() {
 			{ "id", id },
 			{ "name", nameIt != userNames.end() ? nameIt->second : std::string() },
 			{ "talking", talkingUsers.count(id) > 0 },
+			{ "self", id == localUserID },
 			{ "avatar", nullptr },
 		};
 		if (avatarIt != avatars.end()) {
@@ -123,6 +125,7 @@ void clearState() {
 	std::lock_guard< std::mutex > lock(stateMutex);
 
 	synchronized = false;
+	localUserID.reset();
 	channelName.clear();
 	channelUsers.clear();
 	userNames.clear();
@@ -203,6 +206,7 @@ void refreshChannel(mumble_connection_t connection) {
 	{
 		std::lock_guard< std::mutex > lock(stateMutex);
 
+		localUserID  = localUser;
 		channelName  = std::move(name);
 		channelUsers = users;
 		userNames    = std::move(names);

@@ -126,6 +126,7 @@ body {
 		document.documentElement.style.setProperty('--avatar-size', size + 'px');
 	}
 	const speakingOnly = flag('speaking_only');
+	const hideSelf = flag('hide_self');
 	const fadeMs = number('fade_ms', 0, 600000) ?? 0;
 	document.body.classList.toggle('horizontal', params.get('layout') === 'horizontal');
 	document.body.classList.toggle('hide-names', flag('hide_names'));
@@ -213,7 +214,7 @@ body {
 	};
 
 	const render = (state) => {
-		const users = (state.users || []).slice().sort(
+		const users = (state.users || []).filter((user) => !(hideSelf && user.self)).sort(
 			(a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id - b.id);
 		const ids = new Set(users.map((user) => user.id));
 
@@ -390,6 +391,7 @@ code {
 				<input id="size" type="number" min="16" max="256" value="50">
 			</label>
 			<label><input id="names" type="checkbox" checked> Show names</label>
+			<label><input id="self" type="checkbox"> Hide yourself</label>
 			<label><input id="speaking" type="checkbox"> Only show speaking users</label>
 			<label class="field">Hide after (ms)
 				<input id="fade" type="number" min="0" max="600000" step="100" value="0" disabled>
@@ -422,6 +424,7 @@ code {
 	const layout = $('layout');
 	const size = $('size');
 	const names = $('names');
+	const self = $('self');
 	const speaking = $('speaking');
 	const fade = $('fade');
 	const url = $('url');
@@ -438,6 +441,9 @@ code {
 		}
 		if (!names.checked) {
 			params.set('hide_names', '1');
+		}
+		if (self.checked) {
+			params.set('hide_self', '1');
 		}
 		fade.disabled = !speaking.checked;
 		if (speaking.checked) {
@@ -456,7 +462,7 @@ code {
 		}
 	};
 
-	for (const input of [layout, size, names, speaking, fade]) {
+	for (const input of [layout, size, names, self, speaking, fade]) {
 		input.addEventListener('input', update);
 		input.addEventListener('change', update);
 	}
