@@ -41,7 +41,7 @@ jobs:
           build_version="$("${{ github.workspace }}/scripts/mumble-version.py")"
           build_number="$("${{ github.workspace }}/scripts/mumble-build-number.py" \
             --commit "${{ github.sha }}" --version "${build_version}" \
-            --password "${{ secrets.BUILD_NUMBER_TOKEN }}" --default 0)"
+            --password "${{ secrets.BUILD_NUMBER_TOKEN }}" --default "${{ github.run_number }}")"
           echo "Build Number: ${build_version}.${build_number}"
           echo "build_number=${build_number}" >> "$GITHUB_OUTPUT"
 
